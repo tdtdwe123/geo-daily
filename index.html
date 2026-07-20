@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>地质行业动态 · 每日速览</title>
+<style>
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+  :root{--bg:#f8f8f8;--card:#fff;--text:#222;--sub:#666;--border:#e0e0e0;--accent:#1a1a1a}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);line-height:1.8;font-size:15px;max-width:680px;margin:0 auto;padding:0 14px 40px}
+  header{text-align:center;padding:28px 0 16px;border-bottom:2px solid var(--accent);margin-bottom:20px;position:relative}
+  header h1{font-size:20px;font-weight:800;letter-spacing:1px;margin-bottom:4px}
+  header .sub{font-size:12px;color:var(--sub)}
+  header .update{font-size:11px;color:#bbb;margin-top:4px}
+  .refresh-btn{position:absolute;top:24px;right:0;width:36px;height:36px;border:1px solid #ccc;border-radius:50%;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .3s}
+  .refresh-btn:active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .refresh-btn.spin{animation:spin .6s ease}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  nav{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:20px}
+  nav a{font-size:11px;font-weight:600;padding:6px 12px;border:1px solid #ccc;border-radius:16px;text-decoration:none;color:#555;background:#fff}
+  nav a:active{background:var(--accent);color:#fff}
+
+  .section{margin-bottom:26px}
+  .section h2{font-size:16px;font-weight:700;border-left:3px solid var(--accent);padding-left:10px;margin-bottom:12px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden}
+  .card-header{padding:14px 16px;cursor:pointer;display:flex;align-items:flex-start;gap:10px;-webkit-tap-highlight-color:transparent}
+  .card-header .num{font-size:13px;font-weight:700;color:#aaa;min-width:20px;padding-top:1px}
+  .card-header .info{flex:1;min-width:0}
+  .card-header .info .meta{font-size:11px;color:#999;margin-bottom:4px;display:flex;gap:6px;flex-wrap:wrap}
+  .card-header .info .meta .tag{display:inline-block;padding:2px 7px;border-radius:9px;font-size:10px}
+  .tag-policy{background:#e8f5e9;color:#2e7d32}.tag-ai{background:#e3f2fd;color:#1565c0}
+  .tag-tech{background:#fff3e0;color:#e65100}.tag-equip{background:#f3e5f5;color:#7b1fa2}
+  .card-header .info h3{font-size:15px;font-weight:700;color:var(--text);line-height:1.5}
+  .card-header .info h3 a{color:var(--text);text-decoration:none}
+  .card-header .arrow{font-size:12px;color:#bbb;min-width:16px;text-align:center;padding-top:2px;transition:transform .25s}
+  .card.open .card-header .arrow{transform:rotate(90deg)}
+  .card-body{max-height:0;overflow:hidden;transition:max-height .3s ease}
+  .card.open .card-body{max-height:800px}
+  .card-body-inner{padding:0 16px 16px 46px;font-size:14px;color:#444;line-height:1.9;text-align:justify}
+  .card-body-inner .src{font-size:11px;color:#aaa;border-top:1px solid #f0f0f0;padding-top:10px;margin-top:10px}
+
+  .tools{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px}
+  .tools a{display:block;text-align:center;font-size:12px;font-weight:600;padding:10px;border:1px solid #ccc;border-radius:8px;text-decoration:none;color:#444;background:#fff}
+  .tools a:active{background:var(--accent);color:#fff}
+
+  footer{text-align:center;margin-top:30px;padding:14px 0;font-size:11px;color:#bbb;border-top:1px solid #e0e0e0}
+  footer a{color:#888}
+  .loading{text-align:center;padding:30px;color:#aaa;font-size:14px}
+  .empty{text-align:center;padding:30px;color:#ccc;font-size:13px}
+  .status-bar{text-align:center;font-size:11px;color:#4caf50;padding:4px 0;opacity:0;transition:opacity .3s}
+  .status-bar.show{opacity:1}
+</style>
+</head>
+<body>
+
+<header>
+  <button class="refresh-btn" id="refreshBtn" title="刷新数据">↻</button>
+  <h1>地质行业动态 · 每日速览</h1>
+  <div class="sub">地理信息前沿技术 | 广东省地质测绘院</div>
+  <div class="update">数据更新：<span id="updateTime">加载中...</span> · 自动更新：每日 08:00</div>
+  <div class="status-bar" id="statusBar">已刷新</div>
+</header>
+
+<nav id="navLinks"></nav>
+
+<div class="tools" id="quickTools"></div>
+
+<div class="section">
+  <h2>最新摘编</h2>
+  <div id="articleList" class="loading">加载中...</div>
+</div>
+
+<footer>
+  <a href="https://github.com/tdtdwe123/geo-daily" target="_blank">GitHub 仓库</a> · 
+  自动更新于每日 08:00 UTC · 
+  技术部 陈敏 汇编
+</footer>
+
+<script>
+const API = 'data.json';
+let data = null;
+
+function showStatus(msg) {
+  const bar = document.getElementById('statusBar');
+  bar.textContent = msg;
+  bar.classList.add('show');
+  setTimeout(() => bar.classList.remove('show'), 1500);
+}
+
+async function loadData(showMsg) {
+  var btn = document.getElementById('refreshBtn');
+  btn.classList.add('spin');
+  try {
+    var r = await fetch(API + '?t=' + Date.now());
+    data = await r.json();
+    renderAll();
+    if (showMsg) showStatus('已刷新');
+  } catch(e) {
+    if (showMsg) showStatus('刷新失败');
+    document.getElementById('articleList').innerHTML = '<div class="empty">数据加载失败，请稍后刷新</div>';
+  } finally {
+    btn.classList.remove('spin');
+  }
+}
+
+function renderAll() {
+  document.getElementById('updateTime').textContent = data.updateTime || '未知';
+
+  var nav = document.getElementById('navLinks');
+  nav.innerHTML = '';
+  (data.channels||[]).forEach(function(c) {
+    var a = document.createElement('a');
+    a.href = c.url; a.target = '_blank'; a.textContent = c.name;
+    nav.appendChild(a);
+  });
+
+  var tools = document.getElementById('quickTools');
+  tools.innerHTML = '';
+  (data.quickSearch||[]).forEach(function(q) {
+    var a = document.createElement('a');
+    a.href = q.url; a.target = '_blank'; a.textContent = q.label;
+    tools.appendChild(a);
+  });
+
+  var list = document.getElementById('articleList');
+  if (!data.articles || !data.articles.length) {
+    list.innerHTML = '<div class="empty">暂无最新动态，请稍后刷新</div>';
+    return;
+  }
+  var tagClass = {'政策':'tag-policy','AI应用':'tag-ai','新技术':'tag-tech','新设备':'tag-equip'};
+  list.innerHTML = '';
+  data.articles.forEach(function(a, i) {
+    var tagsHtml = (a.tags||[]).map(function(t) { return '<span class="tag ' + (tagClass[t]||'tag-tech') + '">' + t + '</span>'; }).join('');
+    var titleHtml = a.url ? '<a href="' + a.url + '" target="_blank" onclick="event.stopPropagation()">' + a.title + '</a>' : a.title;
+    list.innerHTML += '<div class="card" id="card' + i + '">' +
+      '<div class="card-header" onclick="toggleCard(' + i + ')">' +
+        '<span class="num">#' + (i+1) + '</span>' +
+        '<div class="info">' +
+          '<div class="meta">' + tagsHtml + '<span>' + (a.date||'') + '</span></div>' +
+          '<h3>' + titleHtml + '</h3>' +
+        '</div>' +
+        '<span class="arrow">▶</span>' +
+      '</div>' +
+      '<div class="card-body">' +
+        '<div class="card-body-inner">' +
+          '<p>' + a.summary + '</p>' +
+          '<div class="src">来源：' + a.source + (a.author ? ' · ' + a.author : '') + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  });
+}
+
+var toggleCard = function(i) {
+  document.getElementById('card'+i).classList.toggle('open');
+};
+
+document.getElementById('refreshBtn').addEventListener('click', function() { loadData(true); });
+loadData(false);
+</script>
+</body>
+</html>
